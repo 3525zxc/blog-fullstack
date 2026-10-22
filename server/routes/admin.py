@@ -54,6 +54,7 @@ def import_data():
         for sub in c.get('subs', []):
             db.session.add(Sub(id=sub['id'], name=sub['name'],
                                desc=sub.get('desc', ''), cat_id=c['id']))
+    db.session.flush()
 
     for p in data.get('posts', []):
         db.session.add(Post(
@@ -62,6 +63,7 @@ def import_data():
             cover=p.get('cover', 0), status=p.get('status', 'published'),
             date=p.get('date', ''), views=p.get('views', 0), likes=p.get('likes', 0),
             local=p.get('local', False)))
+    db.session.flush()
 
     for c in data.get('comments', []):
         db.session.add(Comment(
@@ -69,11 +71,13 @@ def import_data():
             name=c['name'], color=c.get('color', 0), content=c['content'],
             date=c.get('date', ''), status=c.get('status', 'approved'),
             likes=c.get('likes', 0)))
+    db.session.flush()
 
     for g in data.get('guests', []):
         db.session.add(Guest(id=g['id'], name=g['name'], color=g.get('color', 0),
                              content=g['content'], date=g.get('date', ''),
                              likes=g.get('likes', 0)))
+    db.session.flush()
 
     commit()
     return ok({'imported': len(data.get('posts', []))})

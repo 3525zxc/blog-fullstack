@@ -16,4 +16,5 @@ COPY . .
 EXPOSE 8000
 
 # 必须绑定 0.0.0.0，端口取平台注入的 PORT（默认 8000）
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120 server.app:app"]
+# 单进程 + 4 线程：避免多 worker 并发播种导致的数据竞争，个人博客性能足够
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 server.app:app"]

@@ -206,34 +206,52 @@ ADMIN_PASSWORD = 'admin123'
 
 
 def seed_all():
-    """写入演示数据（在 app 上下文中调用）。"""
+    """写入演示数据（在 app 上下文中调用）。
+
+    注意：MySQL 等严格校验外键的数据库，必须按依赖顺序分组 flush
+    （分类 -> 二级分类 -> 文章 -> 评论 -> 留言 -> 设置 -> 管理员），
+    否则同一事务内子表先于父表插入会报 1452 外键错误。
+    """
+    # 1. 主分类
     for c in CATS:
         db.session.add(Category(id=c['id'], name=c['name'], icon=c['icon'],
                                 desc=c['desc'], sort=c['sort']))
     db.session.flush()
+
+    # 2. 二级分类（依赖主分类）
     for c in CATS:
         for s in c['subs']:
             db.session.add(Sub(id=s['id'], name=s['name'], desc=s['desc'], cat_id=c['id']))
+    db.session.flush()
 
+    # 3. 文章（依赖二级分类）
     for p in POSTS:
         db.session.add(Post(
             id=p['id'], title=p['title'], excerpt=p['excerpt'], content=p['content'],
             cat=p['cat'], tags=p['tags'], cover=p['cover'], status=p['status'],
             date=p['date'], views=p['views'], likes=p['likes'], local=False))
+    db.session.flush()
 
+    # 4. 评论（依赖文章）
     for c in COMMENTS:
         db.session.add(Comment(
             id=c['id'], post_id=c['postId'], parent=c['parent'], name=c['name'],
             color=c['color'], content=c['content'], date=c['date'],
             status=c['status'], likes=c['likes']))
+    db.session.flush()
 
+    # 5. 留言板
     for g in GUESTS:
         db.session.add(Guest(id=g['id'], name=g['name'], color=g['color'],
                              content=g['content'], date=g['date'], likes=g['likes']))
+    db.session.flush()
 
+    # 6. 站点设置
     for k, v in SETTINGS.items():
         db.session.add(Setting(key=k, value=v))
+    db.session.flush()
 
+    # 7. 管理员
     admin = Admin(username=ADMIN_USERNAME)
     admin.set_password(ADMIN_PASSWORD)
     db.session.add(admin)

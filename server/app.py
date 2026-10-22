@@ -32,21 +32,57 @@ def create_app():
     db.init_app(app)
     register_blueprints(app)
 
-    with app.app_context():
-        db.create_all()
-        _seed_if_empty()
+    _init_db_with_retry(app)
 
     _register_static(app)
     _register_error_handlers(app)
     return app
 
 
+def _init_db_with_retry(app, retries=5, delay=3):
+    """建表 + 播种；数据库暂时连不上时重试，失败则给出明确的中文提示。"""
+    import time
+    from server.models import Admin, Category
+    last_err = None
+    for attempt in range(1, retries + 1):
+        try:
+            with app.app_context():
+                db.create_all()
+                _seed_if_empty()
+            return True
+        except Exception as e:
+            last_err = e
+            print('[init] 数据库连接失败（第 %d/%d 次）：%s' % (attempt, retries, e), flush=True)
+            if attempt < retries:
+                time.sleep(delay)
+    print('[init] ============================================================', flush=True)
+    print('[init] ❌ 无法连接 MySQL 数据库，程序启动中止。', flush=True)
+    print('[init] 请检查环境变量是否配置正确：', flush=True)
+    print('[init]   DATABASE_URL = %s' % Config.SQLALCHEMY_DATABASE_URI.split('@')[-1], flush=True)
+    print('[init] 常见原因：账号密码错误 / 主机端口写错 / sqlpub 实例未运行 /', flush=True)
+    print('[init]          安全组或防火墙拦截 / 密码含特殊字符未编码', flush=True)
+    print('[init] 本地排查：python -m server.check_db', flush=True)
+    print('[init] ============================================================', flush=True)
+    raise last_err
+
+
 def _seed_if_empty():
     from server.models import Admin, Category
-    if Admin.query.count() == 0 and Category.query.count() == 0:
-        from server.seed import seed_all
-        seed_all()
-        print('[init] 数据库为空，已写入演示数据（admin / admin123）')
+    try:
+        need_seed = Admin.query.count() == 0 and Category.query.count() == 0
+    except Exception:
+        need_seed = True
+    if need_seed:
+        try:
+            from server.seed import seed_all
+            seed_all()
+            print('[init] 数据库为空，已写入演示数据（admin / admin123）', flush=True)
+        except Exception as e:
+            # 并发启动时可能已被其他进程播种，按已播种处理
+            db.session.rollback()
+            print('[init] 播种被跳过或失败：%s' % e, flush=True)
+            if Admin.query.count() == 0:
+                raise
 
 
 def _register_static(app):
@@ -64,7 +100,12 @@ def _register_static(app):
 
     @app.route('/healthz')
     def healthz():
-        return jsonify({'ok': True})
+        # 同时探测数据库：连不上库时返回 503，便于部署平台健康检查失败并暴露原因
+        try:
+            db.session.execute(db.text('SELECT 1'))
+            return jsonify({'ok': True, 'db': 'up'})
+        except Exception as e:
+            return jsonify({'ok': False, 'db': 'down', 'error': str(e)}), 503
 
 
 def _register_error_handlers(app):
