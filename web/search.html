@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>搜索 · 林间漫记</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%235b5bd6'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3E林%3C/text%3E%3C/svg%3E">
+</head>
+<body data-page="search">
+  <div id="header-root"></div>
+
+  <main class="container page">
+    <div class="search-hero">
+      <h1>🔍 搜索文章</h1>
+      <form class="search-big" id="bigSearch" action="search.html" method="get">
+        <input type="text" name="q" id="searchInput" placeholder="输入关键词，试试 “Grid” 或 “京都”…" autocomplete="off">
+        <button class="btn btn-primary" type="submit">搜索</button>
+      </form>
+      <div class="search-meta" id="searchMeta"></div>
+    </div>
+    <div class="post-list" id="resultList"></div>
+    <div class="empty-state" id="resultEmpty" style="display:none">
+      <h3>没有找到相关文章</h3>
+      <p>换个关键词试试，或者从下面的热门标签进入</p>
+      <div class="tag-cloud" id="hotTags" style="justify-content:center;margin-top:16px"></div>
+    </div>
+  </main>
+
+  <div id="footer-root"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/common.js"></script>
+  <script>
+    Blog.boot(function () {
+      var q = Blog.getParam('q');
+      var input = document.getElementById('searchInput');
+      input.value = q;
+      input.focus();
+
+      function excerptWithHighlight(post, keyword) {
+        var plain = post.content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+        var idx = keyword ? plain.toLowerCase().indexOf(keyword.toLowerCase()) : -1;
+        var seg = idx >= 0 ? plain.slice(Math.max(0, idx - 40), idx + 90) : plain.slice(0, 120);
+        return (idx > 40 ? '…' : '') + Blog.highlight(seg, keyword) + '…';
+      }
+
+      function render() {
+        var list = q ? BlogData.getPosts({ q: q }) : [];
+        var meta = document.getElementById('searchMeta');
+        var box = document.getElementById('resultList');
+        var empty = document.getElementById('resultEmpty');
+
+        if (!q) {
+          meta.innerHTML = '输入关键词开始搜索，支持标题、摘要、标签与全文匹配';
+          box.innerHTML = '';
+          empty.style.display = 'none';
+          return;
+        }
+        meta.innerHTML = '关键词「<b>' + Blog.esc(q) + '</b>」共找到 <b>' + list.length + '</b> 篇文章';
+        box.innerHTML = list.map(function (p) {
+          var sub = BlogData.subOf(p.cat) || { name: p.cat };
+          return '<a class="post-card" href="article.html?id=' + p.id + '">' +
+            '<div class="post-cover" style="' + Blog.coverStyle(p) + '"><span class="cover-pattern"></span>' +
+            Blog.icon((BlogData.mainOf(p.cat) || {}).icon || 'file', 'cover-icon') +
+            '<span class="cover-cat">' + Blog.esc(sub.name) + '</span></div>' +
+            '<div class="post-info">' +
+              '<div class="post-meta-top"><span class="badge badge-cat">' + Blog.esc(sub.name) + '</span><span>' + Blog.icon('clock') + ' ' + Blog.fmtDate(p.date) + '</span></div>' +
+              '<h3 class="post-title">' + Blog.highlight(p.title, q) + '</h3>' +
+              '<p class="post-excerpt">' + excerptWithHighlight(p, q) + '</p>' +
+              '<div class="post-meta">' +
+                '<span>' + Blog.icon('eye') + ' ' + p.views + '</span>' +
+                '<span>' + Blog.icon('heart') + ' ' + p.likes + '</span>' +
+                '<span class="read-more">阅读全文 ' + Blog.icon('arrow') + '</span>' +
+              '</div>' +
+            '</div>' +
+          '</a>';
+        }).join('');
+        empty.style.display = list.length ? 'none' : 'block';
+        if (!list.length) {
+          document.getElementById('hotTags').innerHTML = BlogData.tagCloud().slice(0, 10).map(function (t) {
+            return '<a class="tag-chip" href="search.html?q=' + encodeURIComponent(t.tag) + '">' + Blog.esc(t.tag) + '</a>';
+          }).join('');
+        }
+      }
+      render();
+
+      document.getElementById('bigSearch').addEventListener('submit', function (e) {
+        var v = input.value.trim();
+        if (!v) e.preventDefault();
+      });
+    });
+  </script>
+</body>
+</html>

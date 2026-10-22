@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>评论管理 · 管理后台</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%235b5bd6'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3E林%3C/text%3E%3C/svg%3E">
+</head>
+<body data-page="comments">
+  <div class="admin-layout">
+    <aside class="admin-side" id="adminSide"></aside>
+    <div class="admin-main">
+      <header class="admin-topbar" id="adminTop"></header>
+      <div class="admin-content">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="filter-tabs" id="cmtTabs"></div>
+            <span style="font-size:12.5px;color:var(--text-3)">提示：回复会以作者身份展示在文章评论区</span>
+          </div>
+          <div id="cmtList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/data.js"></script>
+  <script src="../assets/js/common.js"></script>
+  <script>
+    Blog.boot(function () {
+      Blog.mountAdmin('comments', '评论管理');
+      var s = BlogData.getSettings();
+      var current = 'all';
+
+      var tabs = [
+        { key: 'all', label: '全部' },
+        { key: 'pending', label: '待审核' },
+        { key: 'approved', label: '已通过' }
+      ];
+
+      function renderTabs() {
+        var all = BlogData.allComments();
+        var counts = {
+          all: all.length,
+          pending: all.filter(function (c) { return c.status === 'pending'; }).length,
+          approved: all.filter(function (c) { return c.status === 'approved'; }).length
+        };
+        document.getElementById('cmtTabs').innerHTML = tabs.map(function (t) {
+          return '<button class="filter-tab' + (t.key === current ? ' active' : '') + '" data-t="' + t.key + '">' + t.label + ' ' + counts[t.key] + '</button>';
+        }).join('');
+        Blog.$$('#cmtTabs [data-t]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            current = b.getAttribute('data-t');
+            renderTabs(); renderList();
+          });
+        });
+      }
+
+      function renderList() {
+        var list = BlogData.allComments();
+        if (current !== 'all') list = list.filter(function (c) { return c.status === current; });
+        var box = document.getElementById('cmtList');
+        if (!list.length) {
+          box.innerHTML = '<div class="empty-state" style="padding:50px"><h3>没有' + (current === 'pending' ? '待审核' : '') + '评论</h3><p>世界真安静</p></div>';
+          return;
+        }
+        box.innerHTML = list.map(function (c) {
+          var p = BlogData.getPost(c.postId);
+          var status = c.status === 'pending'
+            ? '<span class="badge badge-pending">待审核</span>'
+            : '<span class="badge badge-published">已通过</span>';
+          return '<div class="cmt-row" data-id="' + c.id + '">' +
+            '<span class="avatar" style="background:' + BlogData.GRADIENTS[(c.color || 0) % BlogData.GRADIENTS.length] + '">' + Blog.esc(c.name.charAt(0)) + '</span>' +
+            '<div class="cmt-main">' +
+              '<div class="comment-head">' +
+                '<strong>' + Blog.esc(c.name) + '</strong>' +
+                (c.name === s.author ? '<span class="role">作者</span>' : '') +
+                (c.parent ? '<span class="badge badge-draft">回复</span>' : '') +
+                status +
+                '<time>' + Blog.fmtRel(c.date) + '</time>' +
+              '</div>' +
+              '<p class="comment-text">' + Blog.esc(c.content) + '</p>' +
+              '<div class="cmt-post">文章：' + (p ? '<a href="../article.html?id=' + p.id + '">《' + Blog.esc(p.title) + '》</a>' : '<span>已删除</span>') + '</div>' +
+              '<div class="cmt-reply-form reply-box" data-rbox="' + c.id + '" style="display:none">' +
+                '<textarea class="textarea" style="min-height:70px" placeholder="以作者身份回复 ' + Blog.esc(c.name) + '…"></textarea>' +
+                '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">' +
+                  '<button class="btn btn-ghost btn-sm" data-rcancel="' + c.id + '">取消</button>' +
+                  '<button class="btn btn-primary btn-sm" data-rsend="' + c.id + '">发送回复</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="cmt-ops">' +
+              (c.status === 'pending' ? '<button class="row-btn" data-approve="' + c.id + '" title="通过审核">✅</button>' : '') +
+              '<button class="row-btn" data-reply="' + c.id + '" title="回复">💬</button>' +
+              '<button class="row-btn danger" data-del="' + c.id + '" title="删除">🗑️</button>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+      }
+
+      document.getElementById('cmtList').addEventListener('click', function (e) {
+        var ap = e.target.closest('[data-approve]');
+        if (ap) {
+          Promise.resolve(BlogData.setCommentStatus(ap.getAttribute('data-approve'), 'approved'))
+            .then(function () { Blog.toast('已通过审核'); renderTabs(); renderList(); });
+          return;
+        }
+        var rp = e.target.closest('[data-reply]');
+        if (rp) {
+          var rid = rp.getAttribute('data-reply');
+          var box = Blog.$('[data-rbox="' + rid + '"]');
+          var show = box.style.display === 'none';
+          Blog.$$('[data-rbox]').forEach(function (b) { b.style.display = 'none'; });
+          box.style.display = show ? 'flex' : 'none';
+          if (show) Blog.$('textarea', box).focus();
+          return;
+        }
+        var rc = e.target.closest('[data-rcancel]');
+        if (rc) { Blog.$('[data-rbox="' + rc.getAttribute('data-rcancel') + '"]').style.display = 'none'; return; }
+        var rs = e.target.closest('[data-rsend]');
+        if (rs) {
+          var sid = rs.getAttribute('data-rsend');
+          var sbox = Blog.$('[data-rbox="' + sid + '"]');
+          var text = Blog.$('textarea', sbox).value.trim();
+          if (!text) { Blog.toast('回复内容不能为空', 'error'); return; }
+          var target = BlogData.allComments().filter(function (x) { return x.id === sid; })[0];
+          if (!target) { Blog.toast('原评论不存在', 'error'); return; }
+          Promise.resolve(BlogData.addComment({
+            postId: target.postId, parent: sid,
+            name: s.author, color: 0, content: text
+          })).then(function () {
+            Blog.toast('回复成功，已展示在文章评论区');
+            renderList();
+          });
+          return;
+        }
+        var del = e.target.closest('[data-del]');
+        if (del) {
+          Blog.confirmDialog({
+            title: '删除评论', danger: true,
+            text: '确认删除这条评论吗？如果是父评论，其下的回复也会一并删除。',
+            confirmText: '确认删除'
+          }).then(function (ok) {
+            if (!ok) return;
+            Promise.resolve(BlogData.deleteComment(del.getAttribute('data-del')))
+              .then(function () { Blog.toast('评论已删除'); renderTabs(); renderList(); });
+          });
+        }
+      });
+
+      renderTabs();
+      renderList();
+    });
+  </script>
+</body>
+</html>

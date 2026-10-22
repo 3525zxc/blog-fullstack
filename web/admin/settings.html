@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>站点设置 · 管理后台</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%235b5bd6'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3E林%3C/text%3E%3C/svg%3E">
+</head>
+<body data-page="settings">
+  <div class="admin-layout">
+    <aside class="admin-side" id="adminSide"></aside>
+    <div class="admin-main">
+      <header class="admin-topbar" id="adminTop"></header>
+      <div class="admin-content">
+        <div class="settings-grid">
+          <!-- 站点信息 -->
+          <div class="panel">
+            <div class="panel-head"><h3>🏷️ 站点信息</h3></div>
+            <div class="field">
+              <label class="label">站点名称</label>
+              <input class="input" id="setName" maxlength="20">
+            </div>
+            <div class="field">
+              <label class="label">站点副标题</label>
+              <input class="input" id="setSub" maxlength="50">
+            </div>
+            <div class="setting-row">
+              <div class="field" style="flex:1">
+                <label class="label">作者昵称</label>
+                <input class="input" id="setAuthor" maxlength="20">
+              </div>
+              <div class="field" style="flex:1">
+                <label class="label">作者签名</label>
+                <input class="input" id="setSign" maxlength="40">
+              </div>
+            </div>
+            <div class="field">
+              <label class="label">个人简介</label>
+              <textarea class="textarea" id="setIntro" maxlength="200" style="min-height:90px"></textarea>
+            </div>
+            <button class="btn btn-primary" id="saveSite">💾 保存站点信息</button>
+          </div>
+
+          <div>
+            <!-- 外观 -->
+            <div class="panel">
+              <div class="panel-head"><h3>🎨 外观设置</h3></div>
+              <div class="field">
+                <label class="label">主题模式</label>
+                <div class="theme-opts" id="themeOpts">
+                  <button class="theme-opt" data-t="light">☀️ 浅色</button>
+                  <button class="theme-opt" data-t="dark">🌙 深色</button>
+                </div>
+              </div>
+              <div class="field" style="margin-bottom:0">
+                <label class="label">主色调</label>
+                <div class="accent-opts" id="accentOpts"></div>
+                <div class="field-hint">主色调会实时应用到全站（保存在本地）</div>
+              </div>
+            </div>
+
+            <!-- 分类管理 -->
+            <div class="panel" style="margin-top:16px">
+              <div class="panel-head"><h3>🗂️ 分类管理</h3></div>
+              <div id="catManage"></div>
+              <div class="setting-row" style="margin-top:14px">
+                <select class="select" id="newSubMain" style="flex:1"></select>
+                <input class="input" id="newSubName" placeholder="新二级分类名称" style="flex:1.4" maxlength="12">
+                <button class="btn btn-primary btn-sm" id="addSubBtn">＋ 添加</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 数据管理 -->
+        <div class="settings-grid" style="margin-top:16px">
+          <div class="panel">
+            <div class="panel-head"><h3>💾 数据管理</h3></div>
+            <p class="storage-info">
+              当前为<b>全栈版本</b>：文章、评论、设置均存储于 <b>MySQL 数据库</b>（通过 Flask + SQLAlchemy 访问），前台所有页面实时读取。<br>
+              导出的 JSON 可用于备份或迁移；重置将恢复内置演示数据。
+            </p>
+            <div class="storage-info" id="storageInfo" style="margin-top:10px"></div>
+            <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+              <button class="btn btn-ghost" id="exportBtn">📤 导出数据 (JSON)</button>
+              <button class="btn btn-ghost" id="importBtn">📥 导入数据</button>
+              <input type="file" id="importFile" accept=".json" style="display:none">
+            </div>
+          </div>
+
+          <div class="panel danger-zone">
+            <div class="panel-head"><h3>⚠️ 危险操作</h3></div>
+            <p class="storage-info">重置后将恢复内置的演示文章、评论与留言，<b>你发布的所有内容都会丢失</b>，请先导出备份。</p>
+            <button class="btn btn-danger" id="resetBtn" style="margin-top:14px">🔄 重置为演示数据</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/data.js"></script>
+  <script src="../assets/js/common.js"></script>
+  <script>
+    Blog.boot(function () {
+      Blog.mountAdmin('settings', '站点设置');
+      var s = BlogData.getSettings();
+
+      /* ---------- 载入当前设置 ---------- */
+      document.getElementById('setName').value = s.siteName;
+      document.getElementById('setSub').value = s.sub;
+      document.getElementById('setAuthor').value = s.author;
+      document.getElementById('setSign').value = s.sign;
+      document.getElementById('setIntro').value = s.intro;
+
+      document.getElementById('saveSite').addEventListener('click', function () {
+        var name = document.getElementById('setName').value.trim();
+        if (!name) { Blog.toast('站点名称不能为空', 'error'); return; }
+        Promise.resolve(BlogData.saveSettings({
+          siteName: name,
+          sub: document.getElementById('setSub').value.trim(),
+          author: document.getElementById('setAuthor').value.trim() || '博主',
+          sign: document.getElementById('setSign').value.trim(),
+          intro: document.getElementById('setIntro').value.trim()
+        })).then(function () {
+          Blog.toast('站点信息已保存，全站生效', 'success');
+        });
+      });
+
+      /* ---------- 主题 ---------- */
+      function refreshThemeOpts() {
+        var cur = Blog.getTheme();
+        Blog.$$('#themeOpts .theme-opt').forEach(function (b) {
+          b.classList.toggle('active', b.getAttribute('data-t') === cur);
+        });
+      }
+      Blog.$$('#themeOpts .theme-opt').forEach(function (b) {
+        b.addEventListener('click', function () {
+          Blog.setTheme(b.getAttribute('data-t'));
+          refreshThemeOpts();
+          Blog.toast(b.getAttribute('data-t') === 'dark' ? '已切换为深色模式' : '已切换为浅色模式');
+        });
+      });
+      refreshThemeOpts();
+
+      /* ---------- 主色调 ---------- */
+      var accents = ['#5b5bd6', '#7c3aed', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444'];
+      var accentBox = document.getElementById('accentOpts');
+      function renderAccents() {
+        var cur = BlogData.getSettings().accent;
+        accentBox.innerHTML = accents.map(function (c) {
+          return '<button class="accent-dot' + (c === cur ? ' active' : '') + '" data-a="' + c + '" style="background:' + c + '" title="' + c + '"></button>';
+        }).join('');
+      }
+      accentBox.addEventListener('click', function (e) {
+        var dot = e.target.closest('[data-a]');
+        if (!dot) return;
+        Promise.resolve(BlogData.saveSettings({ accent: dot.getAttribute('data-a') })).then(function () {
+          Blog.applyAccent();
+          renderAccents();
+          Blog.toast('主色调已更新');
+        });
+      });
+      renderAccents();
+
+      /* ---------- 分类管理 ---------- */
+      function renderCatManage() {
+        var cats = BlogData.getCats();
+        document.getElementById('catManage').innerHTML = cats.map(function (c) {
+          return '<div class="cat-manage-row">' +
+            '<span class="avatar" style="background:' + BlogData.GRADIENTS[cats.indexOf(c) % BlogData.GRADIENTS.length] + '">' + Blog.esc(c.name.charAt(0)) + '</span>' +
+            '<b>' + Blog.esc(c.name) + '</b>' +
+            '<div class="subs">' + c.subs.map(function (sb) {
+              var n = BlogData.getPosts({ cat: sb.id }).length;
+              return '<span class="chip">' + Blog.esc(sb.name) + ' (' + n + ')' +
+                '<button data-delsub="' + sb.id + '" title="删除该分类">' + Blog.icon('x') + '</button></span>';
+            }).join('') + '</div>' +
+          '</div>';
+        }).join('');
+        var sel = document.getElementById('newSubMain');
+        sel.innerHTML = cats.map(function (c) {
+          return '<option value="' + c.id + '">归入：' + Blog.esc(c.name) + '</option>';
+        }).join('');
+      }
+      renderCatManage();
+
+      document.getElementById('catManage').addEventListener('click', function (e) {
+        var del = e.target.closest('[data-delsub]');
+        if (!del) return;
+        var id = del.getAttribute('data-delsub');
+        var sub = BlogData.subOf(id);
+        Blog.confirmDialog({
+          title: '删除分类', danger: true,
+          text: '确认删除分类「' + (sub ? sub.name : '') + '」吗？该分类下的文章将保留，但不再显示在导航中。',
+          confirmText: '删除'
+        }).then(function (ok) {
+          if (!ok) return;
+          Promise.resolve(BlogData.delSub(id)).then(function () {
+            renderCatManage();
+            Blog.toast('分类已删除');
+          });
+        });
+      });
+
+      document.getElementById('addSubBtn').addEventListener('click', function () {
+        var name = document.getElementById('newSubName').value.trim();
+        if (!name) { Blog.toast('请输入分类名称', 'error'); return; }
+        var main = document.getElementById('newSubMain').value;
+        Promise.resolve(BlogData.addSub(main, name)).then(function () {
+          document.getElementById('newSubName').value = '';
+          renderCatManage();
+          Blog.toast('已添加分类「' + name + '」，全站导航已生效');
+        });
+      });
+
+      /* ---------- 数据管理 ---------- */
+      function renderStorage() {
+        var size = BlogData.exportData().length;
+        var kb = (size / 1024).toFixed(1);
+        var where = BlogData.isApiMode() ? 'MySQL 数据库' : '浏览器本地';
+        document.getElementById('storageInfo').innerHTML =
+          '当前数据存储于<b>' + where + '</b> · 数据约 <b>' + kb + ' KB</b> · 文章 <b>' + BlogData.getPosts().length + '</b> 篇 · 评论 <b>' + BlogData.allComments().length + '</b> 条';
+      }
+      renderStorage();
+
+      document.getElementById('exportBtn').addEventListener('click', function () {
+        var blob = new Blob([BlogData.exportData()], { type: 'application/json' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'linblog-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        Blog.toast('数据已导出为 JSON 文件');
+      });
+
+      document.getElementById('importBtn').addEventListener('click', function () {
+        document.getElementById('importFile').click();
+      });
+      document.getElementById('importFile').addEventListener('change', function () {
+        var f = this.files[0];
+        if (!f) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+          try {
+            var data = JSON.parse(reader.result);
+            if (!data.posts) throw new Error('格式不正确');
+            Promise.resolve(BlogData.importData(data)).then(function () {
+              Blog.toast('导入成功，即将刷新页面', 'success');
+              setTimeout(function () { location.reload(); }, 800);
+            });
+          } catch (err) {
+            Blog.toast('导入失败：文件格式不正确', 'error');
+          }
+        };
+        reader.readAsText(f);
+      });
+
+      document.getElementById('resetBtn').addEventListener('click', function () {
+        Blog.confirmDialog({
+          title: '重置演示数据', danger: true,
+          text: '将清空你发布的所有文章、评论与设置，恢复为初始演示数据。建议先导出备份。',
+          confirmText: '确认重置'
+        }).then(function (ok) {
+          if (!ok) return;
+          Promise.resolve(BlogData.resetData()).then(function () {
+            Blog.toast('已恢复演示数据');
+            setTimeout(function () { location.reload(); }, 600);
+          });
+        });
+      });
+    });
+  </script>
+</body>
+</html>

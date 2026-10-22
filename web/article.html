@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文章详情 · 林间漫记</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%235b5bd6'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3E林%3C/text%3E%3C/svg%3E">
+</head>
+<body data-page="article">
+  <div id="header-root"></div>
+  <div class="progress-bar" id="progressBar"></div>
+
+  <main class="container page" id="articleRoot"></main>
+
+  <div id="footer-root"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/common.js"></script>
+  <script>
+    Blog.boot(function () {
+      var post = BlogData.getPost(Blog.getParam('id'));
+      var root = document.getElementById('articleRoot');
+      var s = BlogData.getSettings();
+
+      if (!post) {
+        root.innerHTML =
+          '<div class="empty-state" style="padding:100px 20px">' +
+          '<h3>😕 文章不存在或已被删除</h3>' +
+          '<p>它可能已被作者移除，或者链接输入有误</p>' +
+          '<p style="margin-top:20px"><a class="btn btn-primary" href="index.html">返回首页</a></p></div>';
+        return;
+      }
+
+      BlogData.incViews(post.id);
+      document.title = post.title + ' · ' + s.siteName;
+      var sub = BlogData.subOf(post.cat) || { name: post.cat };
+      var main = BlogData.mainOf(post.cat) || {};
+      var iconName = main.icon || 'file';
+
+      /* 上一篇 / 下一篇 */
+      var siblings = BlogData.getPosts({ main: main.id });
+      var idx = siblings.findIndex(function (p) { return p.id === post.id; });
+      var prev = siblings[idx - 1], next = siblings[idx + 1];
+
+      root.innerHTML =
+        '<div class="article-layout">' +
+          '<div>' +
+            '<nav class="breadcrumb">' +
+              '<a href="index.html">首页</a>' + Blog.icon('arrow') +
+              '<a href="category.html?main=' + main.id + '">' + Blog.esc(main.name) + '</a>' + Blog.icon('arrow') +
+              '<a href="category.html?cat=' + sub.id + '">' + Blog.esc(sub.name) + '</a>' + Blog.icon('arrow') +
+              '<span>正文</span>' +
+            '</nav>' +
+
+            '<header class="article-hero">' +
+              '<span class="badge badge-cat">' + Blog.icon('tag') + ' ' + Blog.esc(sub.name) + '</span>' +
+              '<h1>' + Blog.esc(post.title) + '</h1>' +
+              '<div class="article-meta">' +
+                '<span class="author"><span class="avatar avatar-xs" style="background:' + BlogData.GRADIENTS[0] + '">' + Blog.esc(s.author.charAt(0)) + '</span>' + Blog.esc(s.author) + '</span>' +
+                '<span>' + Blog.icon('calendar') + Blog.fmtDate(post.date) + '</span>' +
+                '<span>' + Blog.icon('eye') + ' ' + post.views + ' 次阅读</span>' +
+                '<span>' + Blog.icon('clock') + ' 约 ' + Blog.readingTime(post.content) + '</span>' +
+                (post.local ? '<a class="badge badge-warn" href="admin/editor.html?id=' + post.id + '" title="这篇文章由后台本地发布，点击去编辑">' + Blog.icon('edit') + ' 本地发布</a>' : '') +
+              '</div>' +
+            '</header>' +
+
+            '<div class="article-banner" style="' + Blog.coverStyle(post) + '">' +
+              '<span class="cover-pattern"></span>' + Blog.icon(iconName, 'cover-icon') +
+            '</div>' +
+
+            '<article class="article-body" id="articleBody">' + Blog.renderContent(post) + '</article>' +
+
+            '<div class="article-foot">' +
+              '<div class="tag-row">' + Blog.icon('tag') +
+                (post.tags || []).map(function (t) {
+                  return '<a class="tag-chip" href="search.html?q=' + encodeURIComponent(t) + '">#' + Blog.esc(t) + '</a>';
+                }).join('') +
+              '</div>' +
+              '<div class="like-bar">' +
+                '<div class="like-info">如果这篇文章对你有帮助，别忘了点个赞鼓励一下 ♥ 已有 <b id="likeTotal">' + post.likes + '</b> 人点赞</div>' +
+                '<div class="like-actions">' +
+                  '<button class="btn btn-like" id="btnLike">' + Blog.icon('heart') + ' 点赞 <span class="like-num">' + post.likes + '</span></button>' +
+                  '<button class="btn btn-collect" id="btnCollect">' + Blog.icon('star') + ' 收藏</button>' +
+                  '<button class="btn btn-ghost" id="btnShare">' + Blog.icon('share') + ' 分享</button>' +
+                '</div>' +
+              '</div>' +
+              '<div class="prev-next">' +
+                (next
+                  ? '<a class="pn-card next" href="article.html?id=' + next.id + '"><span>下一篇 ' + Blog.icon('arrow') + '</span><strong>' + Blog.esc(next.title) + '</strong></a>'
+                  : '<a class="pn-card next" href="archive.html?tab=timeline"><span>浏览全部 ' + Blog.icon('arrow') + '</span><strong>去归档页看看</strong></a>') +
+                (prev
+                  ? '<a class="pn-card" href="article.html?id=' + prev.id + '"><span>' + Blog.icon('reply') + ' 上一篇</span><strong>' + Blog.esc(prev.title) + '</strong></a>'
+                  : '<a class="pn-card" href="index.html"><span>' + Blog.icon('reply') + ' 回到首页</span><strong>看看其他文章</strong></a>') +
+              '</div>' +
+            '</div>' +
+
+            renderCommentsSection() +
+          '</div>' +
+
+          '<aside>' +
+            '<div class="card toc-card">' +
+              '<h4 class="card-title">' + Blog.icon('book') + ' 目录</h4>' +
+              '<div class="toc-list" id="tocList"></div>' +
+            '</div>' +
+          '</aside>' +
+        '</div>' +
+
+        '<section class="comments-section" id="related">' +
+          '<div class="card">' +
+            '<h3 class="section-title" style="margin-bottom:20px">' + Blog.icon('sparkles') + ' 相关推荐</h3>' +
+            '<div class="mini-grid" id="relatedGrid"></div>' +
+          '</div>' +
+        '</section>';
+
+      /* ---------- 点赞 / 收藏 / 分享 ---------- */
+      var likeBtn = document.getElementById('btnLike');
+      var collectBtn = document.getElementById('btnCollect');
+      function refreshBtnStates() {
+        likeBtn.classList.toggle('on', BlogData.isLiked(post.id));
+        collectBtn.classList.toggle('on', BlogData.isCollected(post.id));
+      }
+      refreshBtnStates();
+      likeBtn.addEventListener('click', function () {
+        Promise.resolve(BlogData.toggleLike(post.id)).then(function (liked) {
+          refreshBtnStates();
+          Blog.$('#btnLike .like-num').textContent = post.likes;
+          document.getElementById('likeTotal').textContent = post.likes;
+          Blog.toast(liked ? '感谢点赞，作者会很开心 ♥' : '已取消点赞');
+        });
+      });
+      collectBtn.addEventListener('click', function () {
+        Promise.resolve(BlogData.toggleCollect(post.id)).then(function (added) {
+          refreshBtnStates();
+          Blog.toast(added ? '已加入收藏，可在侧边栏查看' : '已取消收藏');
+        });
+      });
+      document.getElementById('btnShare').addEventListener('click', function () {
+        Blog.copyText(location.href.split('#')[0], '文章链接已复制，快去分享吧');
+      });
+
+      /* ---------- 目录 + 阅读进度 + 滚动高亮 ---------- */
+      var headings = Blog.$$('#articleBody h2, #articleBody h3');
+      var tocList = document.getElementById('tocList');
+      if (headings.length) {
+        tocList.innerHTML = headings.map(function (h, i) {
+          h.id = 'toc-h-' + i;
+          var level = h.tagName === 'H3' ? 3 : 2;
+          return '<a class="toc-link lv' + level + '" href="#toc-h-' + i + '">' + Blog.esc(h.textContent) + '</a>';
+        }).join('');
+      } else {
+        tocList.innerHTML = '<p class="empty-tip">本文没有小节标题</p>';
+      }
+      var tocLinks = Blog.$$('#tocList .toc-link');
+      var bar = document.getElementById('progressBar');
+      function onScroll() {
+        var st = window.scrollY;
+        var h = document.documentElement.scrollHeight - window.innerHeight;
+        bar.style.width = (h > 0 ? (st / h) * 100 : 0) + '%';
+        var activeIdx = -1;
+        for (var i = 0; i < headings.length; i++) {
+          if (headings[i].getBoundingClientRect().top < 120) activeIdx = i;
+        }
+        tocLinks.forEach(function (l, i) { l.classList.toggle('active', i === activeIdx); });
+      }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+
+      /* ---------- 相关推荐 ---------- */
+      var related = BlogData.getPosts({ main: main.id }).filter(function (p) { return p.id !== post.id; }).slice(0, 3);
+      if (related.length) {
+        document.getElementById('relatedGrid').innerHTML = related.map(Blog.postCardMini).join('');
+      } else {
+        document.getElementById('relatedGrid').innerHTML = '<p class="empty-tip">这个分类下暂时没有其他文章</p>';
+      }
+
+      /* ---------- 评论区 ---------- */
+      function renderCommentsSection() {
+        return '<section class="comments-section" id="comments">' +
+          '<div class="card">' +
+            '<div class="section-head" style="margin-bottom:6px">' +
+              '<h2 class="section-title">' + Blog.icon('message') + ' 评论 <small id="cmtCount"></small></h2>' +
+            '</div>' +
+            '<form class="comment-form" id="commentForm">' +
+              '<div class="comment-form-row">' +
+                '<input class="input" id="cmtName" maxlength="20" placeholder="你的昵称" required>' +
+                '<textarea class="textarea" id="cmtText" maxlength="500" placeholder="写下你的想法…（支持理性讨论，拒绝人身攻击）" required></textarea>' +
+              '</div>' +
+              '<div class="comment-form-actions">' +
+                '<span class="tip">' + Blog.icon('check') + ' 评论即时发布，可在管理后台审核</span>' +
+                '<button class="btn btn-primary" type="submit">' + Blog.icon('send') + ' 发表评论</button>' +
+              '</div>' +
+            '</form>' +
+            '<div id="commentList"></div>' +
+          '</div>' +
+        '</section>';
+      }
+
+      function commentItem(c, isReply) {
+        var liked = BlogData.isCommentLiked(c.id);
+        var base = c.likes + (liked ? 1 : 0);
+        var isAuthor = c.name === s.author;
+        return '<div class="comment-item' + (isReply ? ' is-reply' : '') + '" data-cid="' + c.id + '">' +
+          '<span class="avatar" style="background:' + BlogData.GRADIENTS[(c.color || 0) % BlogData.GRADIENTS.length] + '">' + Blog.esc(c.name.charAt(0)) + '</span>' +
+          '<div class="comment-main">' +
+            '<div class="comment-head">' +
+              '<strong>' + Blog.esc(c.name) + '</strong>' +
+              (isAuthor ? '<span class="role">作者</span>' : '') +
+              '<time>' + Blog.fmtRel(c.date) + '</time>' +
+            '</div>' +
+            '<p class="comment-text">' + Blog.esc(c.content) + '</p>' +
+            '<div class="comment-actions">' +
+              '<button class="' + (liked ? 'on' : '') + '" data-clike="' + c.id + '">' + Blog.icon('heart') + ' <span>' + base + '</span></button>' +
+              '<button data-reply="' + c.id + '">' + Blog.icon('reply') + ' 回复</button>' +
+            '</div>' +
+            '<div class="reply-box" data-replybox="' + c.id + '" style="display:none">' +
+              '<textarea class="textarea" placeholder="回复 @' + Blog.esc(c.name) + '…"></textarea>' +
+              '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+                '<button class="btn btn-ghost btn-sm" data-replycancel="' + c.id + '">取消</button>' +
+                '<button class="btn btn-primary btn-sm" data-replysend="' + c.id + '">发送回复</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }
+
+      function renderComments() {
+        var all = BlogData.allComments();
+        var order = {};
+        all.forEach(function (c, i) { order[c.id] = i; });
+        var list = BlogData.getComments(post.id);
+        /* 同日期的新评论排前面 */
+        var top = list.filter(function (c) { return !c.parent; }).sort(function (a, b) {
+          if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+          return order[b.id] - order[a.id];
+        });
+        document.getElementById('cmtCount').textContent = '（' + list.length + ' 条）';
+        var box = document.getElementById('commentList');
+        if (!top.length) {
+          box.innerHTML = '<p class="empty-tip" style="padding:26px 0;text-align:center">还没有评论，来抢沙发吧 ~</p>';
+          return;
+        }
+        box.innerHTML = top.map(function (c) {
+          var replies = list.filter(function (r) { return r.parent === c.id; });
+          return commentItem(c) + (replies.length ? '<div class="comment-replies">' + replies.map(function (r) { return commentItem(r, true); }).join('') + '</div>' : '');
+        }).join('');
+      }
+      renderComments();
+
+      /* 评论事件委托 */
+      document.getElementById('comments').addEventListener('click', function (e) {
+        var t = e.target;
+        var likeBtn2 = t.closest('[data-clike]');
+        if (likeBtn2) {
+          var cid = likeBtn2.getAttribute('data-clike');
+          Promise.resolve(BlogData.toggleCommentLike(cid)).then(function (on) {
+            likeBtn2.classList.toggle('on', on);
+            var c = BlogData.allComments().filter(function (x) { return x.id === cid; })[0];
+            Blog.$('span', likeBtn2).textContent = (c ? c.likes : 0) + (on ? 1 : 0);
+          });
+          return;
+        }
+        var replyBtn = t.closest('[data-reply]');
+        if (replyBtn) {
+          var rid = replyBtn.getAttribute('data-reply');
+          var box = Blog.$('[data-replybox="' + rid + '"]');
+          var show = box.style.display === 'none';
+          Blog.$$('[data-replybox]').forEach(function (b) { b.style.display = 'none'; });
+          box.style.display = show ? 'flex' : 'none';
+          if (show) Blog.$('textarea', box).focus();
+          return;
+        }
+        var cancelBtn = t.closest('[data-replycancel]');
+        if (cancelBtn) {
+          Blog.$('[data-replybox="' + cancelBtn.getAttribute('data-replycancel') + '"]').style.display = 'none';
+          return;
+        }
+        var sendBtn = t.closest('[data-replysend]');
+        if (sendBtn) {
+          var pid = sendBtn.getAttribute('data-replysend');
+          var rbox = Blog.$('[data-replybox="' + pid + '"]');
+          var text = Blog.$('textarea', rbox).value.trim();
+          if (!text) { Blog.toast('回复内容不能为空', 'error'); return; }
+          var parentC = BlogData.allComments().filter(function (x) { return x.id === pid; })[0];
+          Promise.resolve(BlogData.addComment({
+            postId: post.id, parent: pid,
+            name: '我', color: 3,
+            content: text
+          })).then(function () {
+            renderComments();
+            Blog.toast(parentC ? '回复 @' + parentC.name + ' 成功' : '回复成功');
+          });
+          return;
+        }
+      });
+
+      /* 提交评论 */
+      document.getElementById('commentForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var name = document.getElementById('cmtName').value.trim();
+        var text = document.getElementById('cmtText').value.trim();
+        if (!name) { Blog.toast('先填个昵称吧', 'error'); return; }
+        if (text.length < 2) { Blog.toast('评论内容太短啦', 'error'); return; }
+        var form = this;
+        Promise.resolve(BlogData.addComment({
+          postId: post.id, parent: null,
+          name: name, color: Math.floor(Math.random() * BlogData.GRADIENTS.length),
+          content: text
+        })).then(function () {
+          form.reset();
+          renderComments();
+          Blog.toast('评论发表成功！', 'success');
+        });
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>林间漫记 · 记录代码、设计与生活的交汇点</title>
+  <meta name="description" content="林间漫记 —— 一个关于前端技术、生活随笔与设计灵感的个人博客。">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%235b5bd6'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3E林%3C/text%3E%3C/svg%3E">
+</head>
+<body data-page="index">
+  <div id="header-root"></div>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container hero-inner">
+      <span class="hero-kicker">✦ 欢迎来到我的数字自留地</span>
+      <h1>在代码与生活之间，<br>留一片树林给自己</h1>
+      <p class="hero-sub" id="typeLine"></p>
+      <div class="hero-actions">
+        <a class="btn btn-lg btn-light" href="#articles">开始阅读文章</a>
+        <a class="btn btn-lg btn-ghost" href="admin/editor.html">✍️ 试试写一篇</a>
+      </div>
+      <div class="hero-stats" id="heroStats"></div>
+    </div>
+  </section>
+
+  <main class="container page">
+    <div class="layout">
+      <!-- 文章列表 -->
+      <div>
+        <div class="section-head" id="articles">
+          <h2 class="section-title">📚 最新文章 <small>按发布时间排序</small></h2>
+          <div class="filter-tabs" id="filterTabs"></div>
+        </div>
+        <div class="post-list" id="postList"></div>
+        <div class="empty-state" id="listEmpty" style="display:none">
+          <div class="icon">📭</div>
+          <h3>这个分类下还没有文章</h3>
+          <p>换一个分类看看，或者去后台写第一篇</p>
+        </div>
+
+        <div class="cta-banner">
+          <div>
+            <h3>喜欢这个博客的风格？</h3>
+            <p>这是一个高保真交互原型，所有数据保存在浏览器本地。去管理后台体验发布文章、审核评论的完整流程。</p>
+          </div>
+          <a class="btn btn-lg btn-light" href="admin/login.html">进入管理后台 →</a>
+        </div>
+      </div>
+
+      <!-- 侧边栏 -->
+      <div id="sidebarRoot"></div>
+    </div>
+  </main>
+
+  <div id="footer-root"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/common.js"></script>
+  <script>
+    Blog.boot(function () {
+      /* 打字机副标题 */
+      Blog.typewriter(document.getElementById('typeLine'),
+        '记录前端技术、生活随笔与设计灵感 —— 也记录那些深夜咖啡馆里的奇思妙想。');
+
+      /* 顶部统计 */
+      var stats = BlogData.getStats();
+      document.getElementById('heroStats').innerHTML = [
+        { n: stats.published, l: '篇已发布文章' },
+        { n: stats.comments, l: '条真诚评论' },
+        { n: stats.tags, l: '个内容标签' },
+        { n: stats.days, l: '天持续写作' }
+      ].map(function (s) {
+        return '<div class="hero-stat"><b>' + s.n + '</b><span>' + s.l + '</span></div>';
+      }).join('');
+
+      /* 侧边栏 */
+      document.getElementById('sidebarRoot').innerHTML = Blog.renderSidebar();
+
+      /* 过滤标签 */
+      var cats = BlogData.getCats();
+      var filters = [{ key: 'all', name: '全部' }].concat(cats.map(function (c) {
+        return { key: c.id, name: c.name };
+      }));
+      var current = 'all';
+      var sortDesc = true;
+
+      function renderTabs() {
+        document.getElementById('filterTabs').innerHTML = filters.map(function (f) {
+          return '<button class="filter-tab' + (f.key === current ? ' active' : '') + '" data-f="' + f.key + '">' + f.name + '</button>';
+        }).join('') +
+        '<button class="filter-tab" data-sort="' + (sortDesc ? 'date' : 'hot') + '" title="切换排序">' +
+        (sortDesc ? '🕐 最新' : '🔥 最热') + '</button>';
+        Blog.$$('#filterTabs [data-f]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            current = b.getAttribute('data-f');
+            renderTabs(); renderList();
+          });
+        });
+        var sortBtn = Blog.$('#filterTabs [data-sort]');
+        sortBtn.addEventListener('click', function () {
+          sortDesc = !sortDesc;
+          renderTabs(); renderList();
+        });
+      }
+
+      function renderList() {
+        var list = BlogData.getPosts({ main: current === 'all' ? undefined : current });
+        if (!sortDesc) list = list.slice().sort(function (a, b) { return (b.likes + b.views) - (a.likes + a.views); });
+        var box = document.getElementById('postList');
+        box.innerHTML = list.map(Blog.postCardH).join('');
+        document.getElementById('listEmpty').style.display = list.length ? 'none' : 'block';
+      }
+
+      renderTabs();
+      renderList();
+    });
+  </script>
+</body>
+</html>

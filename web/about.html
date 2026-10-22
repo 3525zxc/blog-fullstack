@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>关于我 · 林间漫记</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%235b5bd6'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3E林%3C/text%3E%3C/svg%3E">
+</head>
+<body data-page="about">
+  <div id="header-root"></div>
+
+  <main class="container page">
+    <div class="about-grid">
+      <!-- 名片 -->
+      <div class="card about-card">
+        <span class="avatar avatar-lg" style="background:linear-gradient(135deg,#667eea,#764ba2)">大</span>
+        <h2>大谢</h2>
+        <p class="role">前端工程师 / 业余摄影爱好者</p>
+        <p class="quote">“白天写界面，晚上写文字，周末按快门。<br>相信持续输出是最好的学习方式。”</p>
+        <div class="contact-row">
+          <button class="icon-btn" data-contact="邮箱" title="邮箱">📧</button>
+          <button class="icon-btn" data-contact="GitHub" title="GitHub">🐙</button>
+          <button class="icon-btn" data-contact="微信" title="微信">💬</button>
+          <button class="icon-btn" data-contact="RSS" title="RSS">📡</button>
+        </div>
+      </div>
+
+      <!-- 详情 -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="card about-panel">
+          <h3>👋 你好，欢迎来到林间漫记</h3>
+          <p>我是大谢，一名前端工程师，目前专注于 Web 体验与性能优化。这个博客是我的数字自留地——没有算法推荐，没有信息流，只有按时间排列的文字。</p>
+          <p>这里的内容大致分成三类：<b>技术</b>（工作中学到的东西）、<b>设计</b>（对美的一点执念）、<b>生活</b>（代码之外的世界）。写作对我来说首先是整理思考的方式，如果恰好帮到了你，那是额外的礼物。</p>
+        </div>
+
+        <div class="card about-panel">
+          <h3>🛠️ 技能栈</h3>
+          <div id="skillList"></div>
+        </div>
+
+        <div class="card about-panel" id="resume">
+          <h3>🌱 我的履历</h3>
+          <div class="milestone"><time>2026</time><div><b>持续写作与分享</b><span>维护个人博客，累计输出 8 篇长文；开始探索 AI 辅助编程的工作流。</span></div></div>
+          <div class="milestone"><time>2024</time><div><b>入职现公司 · 高级前端工程师</b><span>负责中后台体系的前端架构，推动设计系统与组件库落地。</span></div></div>
+          <div class="milestone"><time>2022</time><div><b>第一份前端工作</b><span>从切图仔做起，第一次独立负责完整项目的前端部分。</span></div></div>
+          <div class="milestone"><time>2020</time><div><b>入坑编程</b><span>跟着教程写下第一行 HTML，从此一发不可收拾。</span></div></div>
+        </div>
+
+        <div class="card about-panel">
+          <h3>📮 联系我</h3>
+          <p>如果你对文章内容有不同看法，或者想聊聊技术、合作约稿，都欢迎通过下面的方式联系我（演示原型，按钮仅展示交互效果）：</p>
+          <div class="profile-actions" style="justify-content:flex-start;margin-top:14px">
+            <button class="btn btn-primary btn-sm" data-contact="邮箱">发送邮件</button>
+            <button class="btn btn-ghost btn-sm" data-contact="微信">添加微信</button>
+            <a class="btn btn-ghost btn-sm" href="guestbook.html">去留言板</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="footer-root"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/common.js"></script>
+  <script>
+    Blog.boot(function () {
+      /* 技能条 */
+      var skills = [
+        { name: 'HTML / CSS', val: 95 },
+        { name: 'JavaScript', val: 90 },
+        { name: 'React / Vue', val: 86 },
+        { name: 'Node.js', val: 72 },
+        { name: '设计 / 摄影', val: 68 }
+      ];
+      document.getElementById('skillList').innerHTML = skills.map(function (s) {
+        return '<div class="skill-row"><span class="skill-name">' + s.name + '</span>' +
+          '<div class="skill-bar"><i data-val="' + s.val + '"></i></div><em>' + s.val + '%</em></div>';
+      }).join('');
+      setTimeout(function () {
+        Blog.$$('#skillList .skill-bar i').forEach(function (el) {
+          el.style.width = el.getAttribute('data-val') + '%';
+        });
+      }, 150);
+
+      /* 联系方式（演示） */
+      Blog.$$('[data-contact]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var type = b.getAttribute('data-contact');
+          if (type === '邮箱') Blog.copyText('hello@linblog.demo', '邮箱地址已复制：hello@linblog.demo');
+          else if (type === '微信') Blog.copyText('linblog_demo', '微信号已复制：linblog_demo');
+          else Blog.toast('演示原型：' + type + ' 链接暂未配置', 'info');
+        });
+      });
+    });
+  </script>
+</body>
+</html>

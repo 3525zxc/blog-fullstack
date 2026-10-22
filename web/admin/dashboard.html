@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>仪表盘 · 管理后台</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%235b5bd6'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3E林%3C/text%3E%3C/svg%3E">
+</head>
+<body data-page="dashboard">
+  <div class="admin-layout">
+    <aside class="admin-side" id="adminSide"></aside>
+    <div class="admin-main">
+      <header class="admin-topbar" id="adminTop"></header>
+      <div class="admin-content">
+        <!-- 统计卡片 -->
+        <div class="stat-grid" id="statGrid"></div>
+
+        <div class="admin-panels">
+          <!-- 访问量柱状图 -->
+          <div class="panel">
+            <div class="panel-head">
+              <h3>📈 近 7 天访问量</h3>
+              <span style="font-size:12.5px;color:var(--text-3)">数据为演示值</span>
+            </div>
+            <div class="bar-chart" id="barChart"></div>
+          </div>
+
+          <!-- 分类占比环形图 -->
+          <div class="panel">
+            <div class="panel-head"><h3>🎯 文章分类占比</h3></div>
+            <div class="donut-row" id="donutRow"></div>
+          </div>
+        </div>
+
+        <div class="admin-panels">
+          <!-- 待审核评论 -->
+          <div class="panel">
+            <div class="panel-head">
+              <h3>⏳ 待审核评论</h3>
+              <a class="more" href="comments.html">查看全部 →</a>
+            </div>
+            <div class="mini-list" id="pendingList"></div>
+          </div>
+
+          <!-- 最近动态 -->
+          <div class="panel">
+            <div class="panel-head">
+              <h3>🕐 最近动态</h3>
+            </div>
+            <div class="mini-list" id="activityList"></div>
+          </div>
+        </div>
+
+        <!-- 快捷操作 -->
+        <div class="quick-grid">
+          <a class="quick-card" href="editor.html">
+            <span class="stat-icon" style="background:var(--primary-soft);color:var(--primary)">✍️</span>
+            <div><b>写新文章</b><span>打开 Markdown 编辑器</span></div>
+          </a>
+          <a class="quick-card" href="comments.html">
+            <span class="stat-icon" style="background:var(--warn-soft);color:var(--warn)">💬</span>
+            <div><b>审核评论</b><span id="quickPending">—</span></div>
+          </a>
+          <a class="quick-card" href="settings.html">
+            <span class="stat-icon" style="background:var(--success-soft);color:var(--success)">⚙️</span>
+            <div><b>站点设置</b><span>名称、主题、分类管理</span></div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/data.js"></script>
+  <script src="../assets/js/common.js"></script>
+  <script>
+    Blog.boot(function () {
+      Blog.mountAdmin('dashboard', '仪表盘');
+
+      var stats = BlogData.getStats();
+      var cats = BlogData.getCats();
+
+      /* ---------- 统计卡片 ---------- */
+      var cards = [
+        { icon: '📝', num: stats.published, label: '已发布文章', trend: '+' + Math.max(1, stats.drafts) + ' 篇草稿待写', cls: 'up' },
+        { icon: '💬', num: stats.comments, label: '全部评论', trend: stats.pending + ' 条待审核', cls: stats.pending ? 'flat' : 'up' },
+        { icon: '👀', num: stats.views.toLocaleString(), label: '累计阅读', trend: '较上周 +12.4%', cls: 'up' },
+        { icon: '🏷️', num: stats.tags, label: '内容标签', trend: '覆盖 ' + cats.length + ' 个大分类', cls: 'flat' }
+      ];
+      document.getElementById('statGrid').innerHTML = cards.map(function (c) {
+        return '<div class="stat-card">' +
+          '<span class="stat-icon" style="background:var(--primary-soft)">' + c.icon + '</span>' +
+          '<div><div class="stat-num">' + c.num + '</div><div class="stat-label">' + c.label + '</div></div>' +
+          '<span class="stat-trend ' + c.cls + '">' + c.trend + '</span>' +
+        '</div>';
+      }).join('');
+
+      /* ---------- 柱状图（演示数据） ---------- */
+      var barData = [186, 242, 208, 296, 334, 278, 312];
+      var days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+      var maxBar = Math.max.apply(null, barData);
+      var barHtml = barData.map(function (v, i) {
+        return '<div class="bar-col"><div class="bar-wrap"><div class="bar" data-val="' + v + '" style="height:0%"></div></div><span>' + days[i] + '</span></div>';
+      }).join('');
+      document.getElementById('barChart').innerHTML = barHtml;
+      setTimeout(function () {
+        Blog.$$('#barChart .bar').forEach(function (b, i) {
+          b.style.height = Math.round(barData[i] / maxBar * 100) + '%';
+        });
+      }, 150);
+
+      /* ---------- 环形图（分类占比） ---------- */
+      var palette = ['#5b5bd6', '#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899'];
+      var segs = cats.map(function (c, i) {
+        return { name: c.name, count: BlogData.getPosts({ main: c.id }).length, color: palette[i % palette.length] };
+      });
+      var total = segs.reduce(function (s, x) { return s + x.count; }, 0) || 1;
+      var acc = 0, stops = [];
+      segs.forEach(function (x) {
+        var start = acc / total * 360;
+        acc += x.count;
+        stops.push(x.color + ' ' + start.toFixed(1) + 'deg ' + (acc / total * 360).toFixed(1) + 'deg');
+      });
+      document.getElementById('donutRow').innerHTML =
+        '<div class="donut" style="background:conic-gradient(' + stops.join(',') + ')">' +
+          '<div class="donut-center"><b>' + total + '</b><span>篇文章</span></div>' +
+        '</div>' +
+        '<div class="legend">' + segs.map(function (x) {
+          return '<div class="legend-item"><span class="legend-dot" style="background:' + x.color + '"></span>' +
+            x.name + '<em>' + x.count + ' 篇 · ' + Math.round(x.count / total * 100) + '%</em></div>';
+        }).join('') + '</div>';
+
+      /* ---------- 待审核评论 ---------- */
+      var pending = BlogData.allComments().filter(function (c) { return c.status === 'pending'; });
+      document.getElementById('quickPending').textContent = stats.pending + ' 条评论等待处理';
+      var pendingBox = document.getElementById('pendingList');
+      if (!pending.length) {
+        pendingBox.innerHTML = '<p class="empty-tip" style="padding:14px 4px">太棒了，没有待审核的评论 🎉</p>';
+      } else {
+        pendingBox.innerHTML = pending.slice(0, 4).map(function (c) {
+          var p = BlogData.getPost(c.postId);
+          return '<div class="mini-row" data-pid="' + c.id + '">' +
+            '<span class="avatar avatar-xs" style="background:' + BlogData.GRADIENTS[(c.color || 0) % BlogData.GRADIENTS.length] + '">' + Blog.esc(c.name.charAt(0)) + '</span>' +
+            '<div class="mini-body"><b>' + Blog.esc(c.name) + '：' + Blog.esc(c.content.slice(0, 26)) + (c.content.length > 26 ? '…' : '') + '</b>' +
+            '<span>评论于《' + Blog.esc(p ? p.title : '已删文章') + '》</span></div>' +
+            '<div class="row-actions"><button class="row-btn" data-approve="' + c.id + '" title="通过审核">✅</button>' +
+            '<button class="row-btn danger" data-delcmt="' + c.id + '" title="删除">🗑️</button></div>' +
+          '</div>';
+        }).join('');
+        pendingBox.addEventListener('click', function (e) {
+          var ap = e.target.closest('[data-approve]');
+          if (ap) {
+            Promise.resolve(BlogData.setCommentStatus(ap.getAttribute('data-approve'), 'approved'))
+              .then(function () { Blog.toast('已通过审核'); location.reload(); });
+            return;
+          }
+          var del = e.target.closest('[data-delcmt]');
+          if (del) {
+            Promise.resolve(BlogData.deleteComment(del.getAttribute('data-delcmt')))
+              .then(function () { Blog.toast('评论已删除'); location.reload(); });
+          }
+        });
+      }
+
+      /* ---------- 最近动态 ---------- */
+      var events = [];
+      BlogData.getPosts().slice(0, 3).forEach(function (p) {
+        events.push({ date: p.date, icon: '📝', text: (p.status === 'draft' ? '保存草稿' : '发布文章') + '《' + p.title + '》', status: p.status === 'draft' ? 'draft' : 'published' });
+      });
+      BlogData.allComments().slice(0, 4).forEach(function (c) {
+        var p = BlogData.getPost(c.postId);
+        events.push({ date: c.date, icon: '💬', text: c.name + ' 评论了《' + (p ? p.title : '已删文章') + '》', status: c.status });
+      });
+      events.sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+      document.getElementById('activityList').innerHTML = events.slice(0, 7).map(function (ev) {
+        var badge = ev.status === 'pending' ? '<span class="badge badge-warn">待审核</span>'
+          : ev.status === 'draft' ? '<span class="badge badge-draft">草稿</span>' : '';
+        return '<div class="mini-row"><span>' + ev.icon + '</span>' +
+          '<div class="mini-body"><b>' + Blog.esc(ev.text) + '</b></div>' +
+          badge + '<time>' + Blog.fmtDate(ev.date) + '</time></div>';
+      }).join('');
+    });
+  </script>
+</body>
+</html>

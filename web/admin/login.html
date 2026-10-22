@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>后台登录 · 林间漫记</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%235b5bd6'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3E林%3C/text%3E%3C/svg%3E">
+</head>
+<body data-page="login">
+  <div class="login-page">
+    <!-- 左侧品牌区 -->
+    <div class="login-brand">
+      <div class="logo" style="margin-bottom:26px">
+        <span class="logo-mark" style="background:rgba(255,255,255,.2)">林</span>
+        <span class="logo-text"><strong>林间漫记</strong><small style="color:rgba(255,255,255,.7)">管理后台</small></span>
+      </div>
+      <h1>欢迎回来，<br>继续你的写作。</h1>
+      <p>在这里管理文章、回复评论、调整站点外观。所有操作仅保存在浏览器本地。</p>
+      <div class="login-feats">
+        <div class="login-feat">
+          <span class="stat-icon">✍️</span>
+          <div><b>Markdown 编辑器</b><span>实时预览，一键发布或存草稿</span></div>
+        </div>
+        <div class="login-feat">
+          <span class="stat-icon">💬</span>
+          <div><b>评论审核</b><span>通过、回复、删除，一切尽在掌握</span></div>
+        </div>
+        <div class="login-feat">
+          <span class="stat-icon">📊</span>
+          <div><b>数据看板</b><span>发布量、访问量、互动数据一屏总览</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧登录表单 -->
+    <div class="login-form-wrap">
+      <div class="login-card">
+        <div class="logo">
+          <span class="logo-mark">林</span>
+          <span class="logo-text"><strong>林间漫记</strong></span>
+        </div>
+        <h2>登录管理后台</h2>
+        <p class="login-sub">请输入管理员账号密码</p>
+        <form id="loginForm">
+          <div class="field">
+            <label class="label">账号</label>
+            <input class="input" id="loginUser" placeholder="请输入账号" autocomplete="username">
+          </div>
+          <div class="field">
+            <label class="label">密码</label>
+            <input class="input" id="loginPass" type="password" placeholder="请输入密码" autocomplete="current-password">
+          </div>
+          <div class="field" style="display:flex;align-items:center;justify-content:space-between">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2);cursor:pointer">
+              <input type="checkbox" id="rememberMe" checked> 记住我
+            </label>
+            <a href="#" style="font-size:13px;color:var(--primary)" onclick="return false">忘记密码？</a>
+          </div>
+          <button class="btn btn-primary btn-lg btn-block" type="submit">登 录</button>
+        </form>
+        <div class="login-tip">默认账号 <b>admin</b> / 密码 <b>admin123</b>（部署后请尽快修改）</div>
+        <a class="login-back" href="../index.html">← 返回前台首页</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/data.js"></script>
+  <script src="../assets/js/common.js"></script>
+  <script>
+    Blog.boot(function () {
+      /* 登录页不需要前台页脚 */
+      var fr = document.getElementById('footer-root');
+      if (fr) fr.innerHTML = '';
+
+      if (Blog.isAdmin()) { location.replace('dashboard.html'); return; }
+
+      document.getElementById('loginForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var u = document.getElementById('loginUser').value.trim();
+        var p = document.getElementById('loginPass').value;
+        if (!u) { Blog.toast('请输入账号', 'error'); return; }
+        if (!p) { Blog.toast('请输入密码', 'error'); return; }
+        BlogData.login(u, p).then(function (user) {
+          Blog.adminLogin();
+          Blog.toast('登录成功，欢迎回来，' + user.username + '！');
+          var next = 'dashboard.html';
+          try {
+            next = sessionStorage.getItem('linblog_after_login') || next;
+            sessionStorage.removeItem('linblog_after_login');
+          } catch (err) {}
+          setTimeout(function () { location.href = next; }, 600);
+        }).catch(function (err) {
+          Blog.toast(err.message || '账号或密码错误', 'error');
+        });
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文章管理 · 管理后台</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%235b5bd6'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3E林%3C/text%3E%3C/svg%3E">
+</head>
+<body data-page="posts">
+  <div class="admin-layout">
+    <aside class="admin-side" id="adminSide"></aside>
+    <div class="admin-main">
+      <header class="admin-topbar" id="adminTop"></header>
+      <div class="admin-content">
+        <div class="table-card">
+          <div class="table-toolbar">
+            <div class="filter-tabs" id="statusTabs"></div>
+            <input class="input" id="kwInput" placeholder="搜索标题 / 标签…">
+            <select class="select" id="catSelect"><option value="">全部分类</option></select>
+            <span style="flex:1"></span>
+            <a class="btn btn-primary btn-sm" href="editor.html">✍️ 写文章</a>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th style="width:38%">标题</th>
+                  <th>分类</th>
+                  <th>状态</th>
+                  <th>发布日期</th>
+                  <th>阅读</th>
+                  <th>点赞</th>
+                  <th>评论</th>
+                  <th style="width:130px">操作</th>
+                </tr>
+              </thead>
+              <tbody id="postTbody"></tbody>
+            </table>
+          </div>
+          <div class="table-foot">
+            <span id="footInfo"></span>
+            <span>提示：发布/下架操作会即时同步到前台</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/data.js"></script>
+  <script src="../assets/js/common.js"></script>
+  <script>
+    Blog.boot(function () {
+      Blog.mountAdmin('posts', '文章管理');
+
+      var cats = BlogData.getCats();
+      var subOptions = '';
+      cats.forEach(function (c) {
+        subOptions += '<option value="' + c.id + '" disabled>— ' + Blog.esc(c.name) + ' —</option>';
+        c.subs.forEach(function (s) {
+          subOptions += '<option value="' + s.id + '">' + Blog.esc(s.name) + '</option>';
+        });
+      });
+      document.getElementById('catSelect').innerHTML += subOptions;
+
+      var current = 'all';
+      var tabs = [
+        { key: 'all', label: '全部' },
+        { key: 'published', label: '已发布' },
+        { key: 'draft', label: '草稿' }
+      ];
+
+      function renderTabs() {
+        var all = JSON.parse(BlogData.exportData()).posts;
+        var counts = {
+          all: all.length,
+          published: all.filter(function (p) { return p.status === 'published'; }).length,
+          draft: all.filter(function (p) { return p.status === 'draft'; }).length
+        };
+        document.getElementById('statusTabs').innerHTML = tabs.map(function (t) {
+          return '<button class="filter-tab' + (t.key === current ? ' active' : '') + '" data-s="' + t.key + '">' + t.label + ' ' + counts[t.key] + '</button>';
+        }).join('');
+        Blog.$$('#statusTabs [data-s]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            current = b.getAttribute('data-s');
+            renderTabs(); renderTable();
+          });
+        });
+      }
+
+      function renderTable() {
+        var list = JSON.parse(BlogData.exportData()).posts.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+        if (current !== 'all') list = list.filter(function (p) { return p.status === current; });
+        var kw = document.getElementById('kwInput').value.trim().toLowerCase();
+        if (kw) list = list.filter(function (p) { return (p.title + ' ' + (p.tags || []).join(' ')).toLowerCase().indexOf(kw) >= 0; });
+        var cat = document.getElementById('catSelect').value;
+        if (cat) list = list.filter(function (p) { return p.cat === cat; });
+
+        document.getElementById('postTbody').innerHTML = list.length ? list.map(function (p) {
+          var sub = BlogData.subOf(p.cat) || { name: p.cat };
+          return '<tr data-id="' + p.id + '">' +
+            '<td><div class="t-sub"><a class="t-title" href="../article.html?id=' + p.id + '">' + Blog.esc(p.title) + '</a>' +
+            (p.local ? '<span class="badge badge-cat" style="font-size:10px">本地</span>' : '') + '</div>' +
+            '<span style="font-size:12px;color:var(--text-3)">' + (p.tags || []).map(function (t) { return '#' + Blog.esc(t); }).join(' ') + '</span></td>' +
+            '<td><span class="badge badge-cat">' + Blog.esc(sub.name) + '</span></td>' +
+            '<td>' + (p.status === 'published'
+              ? '<span class="badge badge-published">已发布</span>'
+              : '<span class="badge badge-pending">草稿</span>') + '</td>' +
+            '<td style="color:var(--text-3);font-size:13px">' + Blog.fmtDate(p.date) + '</td>' +
+            '<td>' + (p.views || 0) + '</td>' +
+            '<td>' + (p.likes || 0) + '</td>' +
+            '<td>' + BlogData.commentCount(p.id) + '</td>' +
+            '<td><div style="display:flex;gap:4px">' +
+              '<a class="row-btn" href="editor.html?id=' + p.id + '" title="编辑">✏️</a>' +
+              '<button class="row-btn" data-toggle="' + p.id + '" title="' + (p.status === 'published' ? '转为草稿' : '发布') + '">' + (p.status === 'published' ? '📥' : '📤') + '</button>' +
+              '<button class="row-btn danger" data-del="' + p.id + '" title="删除">🗑️</button>' +
+            '</div></td>' +
+          '</tr>';
+        }).join('') : '<tr><td colspan="8"><div class="empty-state" style="padding:40px"><h3>没有符合条件的文章</h3></div></td></tr>';
+
+        document.getElementById('footInfo').textContent = '共 ' + list.length + ' 条记录';
+      }
+
+      document.getElementById('postTbody').addEventListener('click', function (e) {
+        var tg = e.target.closest('[data-toggle]');
+        if (tg) {
+          var id = tg.getAttribute('data-toggle');
+          var p = BlogData.getPost(id);
+          var next = p.status === 'published' ? 'draft' : 'published';
+          Promise.resolve(BlogData.setPostStatus(id, next)).then(function () {
+            Blog.toast(next === 'published' ? '《' + p.title + '》已发布，前台可见' : '已转为草稿，前台不再展示');
+            renderTabs(); renderTable();
+          });
+          return;
+        }
+        var del = e.target.closest('[data-del]');
+        if (del) {
+          var did = del.getAttribute('data-del');
+          var dp = BlogData.getPost(did);
+          Blog.confirmDialog({
+            title: '删除文章', danger: true,
+            text: '确认删除《' + (dp ? dp.title : '') + '》吗？其下的所有评论也会一并删除，此操作不可恢复。',
+            confirmText: '确认删除'
+          }).then(function (ok) {
+            if (!ok) return;
+            Promise.resolve(BlogData.deletePost(did)).then(function () {
+              Blog.toast('文章已删除');
+              renderTabs(); renderTable();
+            });
+          });
+        }
+      });
+
+      document.getElementById('kwInput').addEventListener('input', renderTable);
+      document.getElementById('catSelect').addEventListener('change', renderTable);
+
+      renderTabs();
+      renderTable();
+    });
+  </script>
+</body>
+</html>

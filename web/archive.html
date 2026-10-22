@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>归档 · 林间漫记</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%235b5bd6'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3E林%3C/text%3E%3C/svg%3E">
+</head>
+<body data-page="archive">
+  <div id="header-root"></div>
+
+  <main class="container page">
+    <div class="page-hero">
+      <h1>🗂️ 文章归档</h1>
+      <p>按时间线、标签或分类，从不同维度回看这里的一切。</p>
+      <div class="filter-tabs" id="archiveTabs" style="margin-top:18px"></div>
+    </div>
+
+    <div id="archiveBody"></div>
+  </main>
+
+  <div id="footer-root"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/common.js"></script>
+  <script>
+    Blog.boot(function () {
+      var tabs = [
+        { key: 'timeline', label: '时间线' },
+        { key: 'tags', label: '标签云' },
+        { key: 'cats', label: '分类总览' }
+      ];
+      var current = Blog.getParam('tab') || 'timeline';
+      if (tabs.every(function (t) { return t.key !== current; })) current = 'timeline';
+
+      function renderTabs() {
+        document.getElementById('archiveTabs').innerHTML = tabs.map(function (t) {
+          return '<a class="filter-tab' + (t.key === current ? ' active' : '') + '" href="archive.html?tab=' + t.key + '">' + t.label + '</a>';
+        }).join('');
+      }
+
+      function render() {
+        var body = document.getElementById('archiveBody');
+        var posts = BlogData.getPosts();
+
+        if (current === 'timeline') {
+          var years = {};
+          posts.forEach(function (p) {
+            var y = p.date.slice(0, 4);
+            (years[y] = years[y] || []).push(p);
+          });
+          var html = '<div class="timeline">';
+          Object.keys(years).sort().reverse().forEach(function (y) {
+            html += '<div class="tl-year">' + y + ' 年 <em>' + years[y].length + ' 篇</em></div>';
+            years[y].forEach(function (p) {
+              var sub = BlogData.subOf(p.cat) || { name: p.cat };
+              html += '<div class="tl-item">' +
+                '<span class="tl-date">' + p.date.slice(5) + '</span>' +
+                '<a href="article.html?id=' + p.id + '">' + Blog.esc(p.title) + '</a>' +
+                '<span class="tl-cat">' + Blog.esc(sub.name) + '</span>' +
+                '</div>';
+            });
+          });
+          body.innerHTML = html + '</div>';
+          if (!posts.length) body.innerHTML = '<div class="empty-state"><h3>还没有任何文章</h3></div>';
+
+        } else if (current === 'tags') {
+          var tags = BlogData.tagCloud();
+          var max = tags.length ? tags[0].count : 1;
+          body.innerHTML = tags.length
+            ? '<div class="card"><div class="tag-wall">' + tags.map(function (t) {
+                var scale = 0.85 + 0.35 * (t.count / max);
+                return '<a class="tag-big" style="font-size:' + scale.toFixed(2) + 'rem" href="search.html?q=' + encodeURIComponent(t.tag) + '">#' + Blog.esc(t.tag) + '<em>' + t.count + ' 篇</em></a>';
+              }).join('') + '</div></div>'
+            : '<div class="empty-state"><h3>暂无标签</h3></div>';
+
+        } else {
+          var cats = BlogData.getCats();
+          body.innerHTML = '<div class="cat-overview">' + cats.map(function (c, i) {
+            var total = BlogData.getPosts({ main: c.id }).length;
+            return '<div class="cat-card">' +
+              '<a class="cat-card-head" style="background:' + BlogData.GRADIENTS[i % BlogData.GRADIENTS.length] + '" href="category.html?main=' + c.id + '">' +
+                '<h3>' + Blog.icon(c.icon) + ' ' + Blog.esc(c.name) + '</h3>' +
+                '<p>' + Blog.esc(c.desc) + '</p>' +
+                '<span class="cat-count" style="position:relative;margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:4px 14px;background:rgba(255,255,255,.18);border-radius:999px;font-size:13px;font-weight:600">' + Blog.icon('file') + ' ' + total + ' 篇</span>' +
+              '</a>' +
+              '<div class="cat-card-body">' + c.subs.map(function (sb) {
+                var n = BlogData.getPosts({ cat: sb.id }).length;
+                return '<a href="category.html?cat=' + sb.id + '"><span>' + Blog.esc(sb.name) + '</span><em>' + n + ' 篇</em></a>';
+              }).join('') + '</div>' +
+            '</div>';
+          }).join('') + '</div>';
+        }
+      }
+
+      renderTabs();
+      render();
+    });
+  </script>
+</body>
+</html>

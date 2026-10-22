@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>写文章 · 管理后台</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%235b5bd6'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3E林%3C/text%3E%3C/svg%3E">
+</head>
+<body data-page="editor">
+  <div class="admin-layout">
+    <aside class="admin-side" id="adminSide"></aside>
+    <div class="admin-main">
+      <header class="admin-topbar" id="adminTop"></header>
+      <div class="admin-content">
+        <div class="editor-layout">
+          <!-- 左侧：编辑表单 -->
+          <div class="editor-form">
+            <div class="panel">
+              <div class="field" style="margin-bottom:14px">
+                <input class="input editor-title-input" id="edTitle" maxlength="80" placeholder="请输入文章标题…">
+              </div>
+              <div class="setting-row">
+                <div class="field" style="flex:1;margin-bottom:0">
+                  <label class="label">主分类</label>
+                  <select class="select" id="edMain"></select>
+                </div>
+                <div class="field" style="flex:1;margin-bottom:0">
+                  <label class="label">二级分类</label>
+                  <select class="select" id="edSub"></select>
+                </div>
+              </div>
+              <div class="field" style="margin-top:14px;margin-bottom:0">
+                <label class="label">标签（用逗号分隔，回车确认）</label>
+                <div class="tag-input-row">
+                  <input class="input" id="edTags" placeholder="例如：CSS, 前端, 教程">
+                </div>
+                <div class="tag-preview" id="tagPreview"></div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <label class="label">封面样式（纯 CSS 渐变，无需图片）</label>
+              <div class="cover-picker" id="coverPicker"></div>
+
+              <div class="field" style="margin-top:18px;margin-bottom:0">
+                <label class="label">摘要</label>
+                <textarea class="textarea" id="edExcerpt" maxlength="200" style="min-height:70px" placeholder="一两句话概括文章，会显示在列表卡片中"></textarea>
+                <div class="field-hint"><button class="toast-action" id="autoExcerpt" type="button" style="padding:0">✨ 根据正文自动生成</button></div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <label class="label" style="margin-bottom:0">正文（支持 Markdown / HTML）</label>
+                <span style="font-size:12px;color:var(--text-3)" id="edMeta"></span>
+              </div>
+              <div class="ed-toolbar" id="edToolbar">
+                <button class="ed-tool" data-cmd="h2">H2</button>
+                <button class="ed-tool" data-cmd="h3">H3</button>
+                <button class="ed-tool" data-cmd="bold"><b>B</b></button>
+                <button class="ed-tool" data-cmd="italic"><i>I</i></button>
+                <button class="ed-tool" data-cmd="code">&lt;/&gt;</button>
+                <button class="ed-tool" data-cmd="quote">❝ 引用</button>
+                <button class="ed-tool" data-cmd="ul">• 列表</button>
+                <button class="ed-tool" data-cmd="ol">1. 列表</button>
+                <button class="ed-tool" data-cmd="link">🔗 链接</button>
+                <button class="ed-tool" data-cmd="hr">— 分割线</button>
+              </div>
+              <textarea class="textarea ed-textarea" id="edContent" placeholder="在这里开始写作…&#10;&#10;# 标题&#10;支持 **加粗**、*斜体*、`代码`、&gt; 引用、- 列表、[链接](https://) 等语法"></textarea>
+            </div>
+
+            <div class="editor-actions">
+              <span class="spacer"></span>
+              <button class="btn btn-ghost" id="btnDraft">💾 存为草稿</button>
+              <button class="btn btn-ghost" id="btnDelete" style="display:none;color:var(--danger)">🗑️ 删除</button>
+              <button class="btn btn-primary btn-lg" id="btnPublish">🚀 发布文章</button>
+            </div>
+          </div>
+
+          <!-- 右侧：实时预览 -->
+          <div class="panel preview-panel">
+            <div class="panel-head">
+              <h3>👁️ 实时预览</h3>
+              <span style="font-size:12px;color:var(--text-3)">与前台渲染一致</span>
+            </div>
+            <div class="preview-body">
+              <article class="article-body" id="previewBody">
+                <div class="preview-empty">在左侧输入内容，这里会实时渲染文章效果</div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/data.js"></script>
+  <script src="../assets/js/common.js"></script>
+  <script>
+    Blog.boot(function () {
+      Blog.mountAdmin('editor', Blog.getParam('id') ? '编辑文章' : '写文章');
+
+      var editId = Blog.getParam('id');
+      var editing = editId ? BlogData.getPost(editId) : null;
+      if (editId && !editing) { Blog.toast('文章不存在', 'error'); }
+
+      var cats = BlogData.getCats();
+
+      /* ---------- 分类下拉 ---------- */
+      var mainSel = document.getElementById('edMain');
+      var subSel = document.getElementById('edSub');
+      mainSel.innerHTML = cats.map(function (c) {
+        return '<option value="' + c.id + '">' + Blog.esc(c.name) + '</option>';
+      }).join('');
+      function renderSubs() {
+        var main = cats.filter(function (c) { return c.id === mainSel.value; })[0];
+        subSel.innerHTML = main.subs.map(function (s) {
+          return '<option value="' + s.id + '">' + Blog.esc(s.name) + '</option>';
+        }).join('');
+      }
+      mainSel.addEventListener('change', renderSubs);
+      renderSubs();
+
+      /* ---------- 封面选择 ---------- */
+      var coverIdx = 0;
+      var picker = document.getElementById('coverPicker');
+      picker.innerHTML = BlogData.GRADIENTS.map(function (g, i) {
+        return '<button type="button" class="cover-opt' + (i === 0 ? ' sel' : '') + '" data-c="' + i + '" style="background:' + g + '" title="封面 ' + (i + 1) + '"></button>';
+      }).join('');
+      picker.addEventListener('click', function (e) {
+        var opt = e.target.closest('[data-c]');
+        if (!opt) return;
+        coverIdx = parseInt(opt.getAttribute('data-c'), 10);
+        Blog.$$('#coverPicker .cover-opt').forEach(function (o) { o.classList.toggle('sel', o === opt); });
+      });
+
+      /* ---------- 工具栏 ---------- */
+      var ta = document.getElementById('edContent');
+      function wrapSel(before, after, placeholder) {
+        var st = ta.selectionStart, en = ta.selectionEnd;
+        var sel = ta.value.slice(st, en) || placeholder || '';
+        ta.value = ta.value.slice(0, st) + before + sel + after + ta.value.slice(en);
+        ta.focus();
+        ta.selectionStart = st + before.length;
+        ta.selectionEnd = st + before.length + sel.length;
+        updatePreview();
+      }
+      function prefixLine(prefix) {
+        var st = ta.selectionStart;
+        var lineStart = ta.value.lastIndexOf('\n', Math.max(0, st - 1)) + 1;
+        ta.value = ta.value.slice(0, lineStart) + prefix + ta.value.slice(lineStart);
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = st + prefix.length;
+        updatePreview();
+      }
+      var cmds = {
+        h2: function () { prefixLine('## '); },
+        h3: function () { prefixLine('### '); },
+        bold: function () { wrapSel('**', '**', '加粗文字'); },
+        italic: function () { wrapSel('*', '*', '斜体文字'); },
+        code: function () { wrapSel('`', '`', 'code'); },
+        quote: function () { prefixLine('> '); },
+        ul: function () { prefixLine('- '); },
+        ol: function () { prefixLine('1. '); },
+        link: function () { wrapSel('[', '](https://)', '链接文字'); },
+        hr: function () { prefixLine('\n---\n'); }
+      };
+      document.getElementById('edToolbar').addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-cmd]');
+        if (btn && cmds[btn.getAttribute('data-cmd')]) cmds[btn.getAttribute('data-cmd')]();
+      });
+
+      /* ---------- 标签 ---------- */
+      var tagsInput = document.getElementById('edTags');
+      function renderTags() {
+        var tags = tagsInput.value.split(/[,，]/).map(function (t) { return t.trim(); }).filter(Boolean);
+        document.getElementById('tagPreview').innerHTML = tags.map(function (t) {
+          return '<span class="tag-chip">#' + Blog.esc(t) + '</span>';
+        }).join('') || '<span class="field-hint" style="margin:0">还没有标签</span>';
+        return tags;
+      }
+      tagsInput.addEventListener('input', renderTags);
+
+      /* ---------- 预览 ---------- */
+      function updatePreview() {
+        var content = ta.value;
+        var title = document.getElementById('edTitle').value.trim();
+        var body = document.getElementById('previewBody');
+        if (!title && !content) {
+          body.innerHTML = '<div class="preview-empty">在左侧输入内容，这里会实时渲染文章效果</div>';
+        } else {
+          body.innerHTML = (title ? '<h1 style="font-size:24px;font-weight:800;margin-bottom:14px">' + Blog.esc(title) + '</h1>' : '') +
+            (content ? (Blog.looksLikeHtml(content) ? content : Blog.md2html(content)) : '<p style="color:var(--text-3)">正文还是空的…</p>');
+        }
+        var plain = content.replace(/<[^>]+>/g, '').replace(/\s/g, '');
+        var cjk = (plain.match(/[\u4e00-\u9fa5]/g) || []).length;
+        var words = (plain.match(/[a-zA-Z0-9]+/g) || []).length;
+        document.getElementById('edMeta').textContent = cjk + ' 字 · 约 ' + Blog.readingTime(content).replace(' 分钟', '') + ' 分钟读完';
+      }
+      ta.addEventListener('input', updatePreview);
+      document.getElementById('edTitle').addEventListener('input', updatePreview);
+
+      /* ---------- 自动摘要 ---------- */
+      document.getElementById('autoExcerpt').addEventListener('click', function () {
+        var plain = ta.value.replace(/<[^>]+>/g, ' ').replace(/[#*`>\-]/g, '').replace(/\s+/g, ' ').trim();
+        document.getElementById('edExcerpt').value = plain.slice(0, 90) + (plain.length > 90 ? '…' : '');
+        Blog.toast('已根据正文生成摘要', 'info');
+      });
+
+      /* ---------- 载入待编辑文章 ---------- */
+      if (editing) {
+        document.getElementById('edTitle').value = editing.title;
+        mainSel.value = (BlogData.mainOf(editing.cat) || {}).id || cats[0].id;
+        renderSubs();
+        subSel.value = editing.cat;
+        tagsInput.value = (editing.tags || []).join(', ');
+        renderTags();
+        coverIdx = editing.cover || 0;
+        Blog.$$('#coverPicker .cover-opt').forEach(function (o) {
+          o.classList.toggle('sel', parseInt(o.getAttribute('data-c'), 10) === coverIdx);
+        });
+        document.getElementById('edExcerpt').value = editing.excerpt || '';
+        ta.value = editing.content || '';
+        document.getElementById('btnDelete').style.display = '';
+        updatePreview();
+      }
+
+      /* ---------- 保存 ---------- */
+      function collect() {
+        return {
+          id: editing ? editing.id : 'p' + Date.now(),
+          title: document.getElementById('edTitle').value.trim(),
+          cat: subSel.value,
+          tags: renderTags(),
+          cover: coverIdx,
+          excerpt: document.getElementById('edExcerpt').value.trim(),
+          content: ta.value,
+          local: true
+        };
+      }
+      function validate(post) {
+        if (!post.title) { Blog.toast('还没有填写标题', 'error'); return false; }
+        if (!post.content.trim()) { Blog.toast('正文还是空的', 'error'); return false; }
+        return true;
+      }
+
+      document.getElementById('btnPublish').addEventListener('click', function () {
+        var post = collect();
+        if (!validate(post)) return;
+        if (!post.excerpt) {
+          var plain = post.content.replace(/<[^>]+>/g, ' ').replace(/[#*`>\-]/g, '').replace(/\s+/g, ' ').trim();
+          post.excerpt = plain.slice(0, 90) + (plain.length > 90 ? '…' : '');
+        }
+        post.status = 'published';
+        post.date = new Date().toISOString().slice(0, 10);
+        if (!editing) { post.views = 0; post.likes = 0; }
+        Promise.resolve(BlogData.savePost(post)).then(function (saved) {
+          Blog.toast(editing ? '文章已更新并发布 🎉' : '文章发布成功！前台已可见 🎉', 'success', {
+            label: '查看文章', href: '../article.html?id=' + saved.id
+          });
+        });
+      });
+
+      document.getElementById('btnDraft').addEventListener('click', function () {
+        var post = collect();
+        if (!post.title) { Blog.toast('草稿也需要一个标题', 'error'); return; }
+        post.status = 'draft';
+        post.date = new Date().toISOString().slice(0, 10);
+        if (!editing) { post.views = 0; post.likes = 0; }
+        Promise.resolve(BlogData.savePost(post)).then(function () {
+          Blog.toast('已保存为草稿', 'info', { label: '去文章管理', href: 'posts.html' });
+        });
+      });
+
+      document.getElementById('btnDelete').addEventListener('click', function () {
+        Blog.confirmDialog({
+          title: '删除文章', danger: true,
+          text: '确认删除《' + editing.title + '》吗？此操作不可恢复。',
+          confirmText: '确认删除'
+        }).then(function (ok) {
+          if (!ok) return;
+          Promise.resolve(BlogData.deletePost(editing.id)).then(function () {
+            Blog.toast('文章已删除');
+            setTimeout(function () { location.href = 'posts.html'; }, 500);
+          });
+        });
+      });
+    });
+  </script>
+</body>
+</html>

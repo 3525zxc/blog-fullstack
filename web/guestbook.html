@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>留言板 · 林间漫记</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%235b5bd6'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3E林%3C/text%3E%3C/svg%3E">
+</head>
+<body data-page="guestbook">
+  <div id="header-root"></div>
+
+  <main class="container page">
+    <div class="page-hero">
+      <h1>💬 留言板</h1>
+      <p>说点什么吧——提问、吐槽、 Cross-check，或者只是打个招呼。每一句话都会被看见。</p>
+      <span class="badge badge-cat" style="margin-top:12px" id="gbCount"></span>
+    </div>
+
+    <div class="layout">
+      <div>
+        <div class="card gb-form">
+          <form id="gbForm">
+            <div class="field">
+              <label class="label">你的昵称</label>
+              <input class="input" id="gbName" maxlength="20" placeholder="怎么称呼你？" required>
+            </div>
+            <div class="field">
+              <label class="label">留言内容</label>
+              <textarea class="textarea" id="gbText" maxlength="300" placeholder="写下你想说的话…（最多 300 字）" required></textarea>
+            </div>
+            <div class="comment-form-actions">
+              <span class="tip" style="font-size:12px;color:var(--text-3)">留言将保存在浏览器本地（演示数据）</span>
+              <button class="btn btn-primary" type="submit">🚀 贴到留言墙</button>
+            </div>
+          </form>
+        </div>
+        <div class="gb-wall" id="gbWall" style="margin-top:20px"></div>
+      </div>
+      <div id="sidebarRoot"></div>
+    </div>
+  </main>
+
+  <div id="footer-root"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/common.js"></script>
+  <script>
+    Blog.boot(function () {
+      document.getElementById('sidebarRoot').innerHTML = Blog.renderSidebar();
+
+      function render() {
+        var list = BlogData.getGuests();
+        document.getElementById('gbCount').innerHTML = Blog.icon('message') + ' 已收到 ' + list.length + ' 条留言';
+        document.getElementById('gbWall').innerHTML = list.map(function (g) {
+          var liked = BlogData.isGuestLiked(g.id);
+          return '<div class="gb-card" data-gid="' + g.id + '">' +
+            '<div class="gb-head">' +
+              '<span class="avatar avatar-sm" style="background:' + BlogData.GRADIENTS[(g.color || 0) % BlogData.GRADIENTS.length] + '">' + Blog.esc(g.name.charAt(0)) + '</span>' +
+              '<strong>' + Blog.esc(g.name) + '</strong>' +
+              '<time>' + Blog.fmtRel(g.date) + '</time>' +
+            '</div>' +
+            '<p class="gb-text">' + Blog.esc(g.content) + '</p>' +
+            '<div class="gb-actions">' +
+              '<button class="' + (liked ? 'on' : '') + '" data-glike="' + g.id + '">' + Blog.icon('heart') + ' <span>' + (g.likes + (liked ? 1 : 0)) + '</span></button>' +
+              '<button data-reply="' + Blog.esc(g.name) + '">' + Blog.icon('reply') + ' 回复</button>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+      }
+      render();
+
+      document.getElementById('gbWall').addEventListener('click', function (e) {
+        var like = e.target.closest('[data-glike]');
+        if (like) {
+          var gid = like.getAttribute('data-glike');
+          Promise.resolve(BlogData.toggleGuestLike(gid)).then(function (on) {
+            like.classList.toggle('on', on);
+            var g = BlogData.getGuests().filter(function (x) { return x.id === gid; })[0];
+            Blog.$('span', like).textContent = (g ? g.likes : 0) + (on ? 1 : 0);
+          });
+          return;
+        }
+        var reply = e.target.closest('[data-reply]');
+        if (reply) {
+          document.getElementById('gbName').value = '';
+          document.getElementById('gbText').value = '@' + reply.getAttribute('data-reply') + ' ';
+          document.getElementById('gbText').focus();
+          document.getElementById('gbName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+
+      document.getElementById('gbForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var name = document.getElementById('gbName').value.trim();
+        var text = document.getElementById('gbText').value.trim();
+        if (!name) { Blog.toast('先填个昵称吧', 'error'); return; }
+        if (text.length < 2) { Blog.toast('留言内容太短啦', 'error'); return; }
+        var form = this;
+        Promise.resolve(BlogData.addGuest({
+          name: name, color: Math.floor(Math.random() * BlogData.GRADIENTS.length), content: text
+        })).then(function () {
+          form.reset();
+          render();
+          Blog.toast('留言成功，感谢你的足迹 ♥');
+        });
+      });
+    });
+  </script>
+</body>
+</html>

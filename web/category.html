@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>分类 · 林间漫记</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%235b5bd6'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3E林%3C/text%3E%3C/svg%3E">
+</head>
+<body data-page="category">
+  <div id="header-root"></div>
+
+  <main class="container page">
+    <div class="cat-hero" id="catHero"></div>
+    <div class="sub-chips" id="subChips"></div>
+    <div class="layout">
+      <div>
+        <div class="section-head">
+          <h2 class="section-title" id="listTitle"></h2>
+        </div>
+        <div class="post-list" id="postList"></div>
+        <div class="empty-state" id="listEmpty" style="display:none">
+          <h3>这个分类下还没有文章</h3>
+          <p>去管理后台写第一篇，填补这片空白</p>
+          <p style="margin-top:16px"><a class="btn btn-primary" href="admin/editor.html">开始写作</a></p>
+        </div>
+      </div>
+      <div id="sidebarRoot"></div>
+    </div>
+  </main>
+
+  <div id="footer-root"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/common.js"></script>
+  <script>
+    Blog.boot(function () {
+      var catParam = Blog.getParam('cat');
+      var mainParam = Blog.getParam('main');
+      var cats = BlogData.getCats();
+
+      var sub = catParam ? BlogData.subOf(catParam) : null;
+      var main = sub ? BlogData.mainOf(sub.id) : cats.filter(function (c) { return c.id === mainParam; })[0];
+
+      if (!main) {
+        document.getElementById('catHero').innerHTML =
+          '<h1>😕 分类不存在</h1><p>链接可能已失效，<a href="index.html" style="text-decoration:underline">返回首页</a>看看</p>';
+        document.getElementById('subChips').innerHTML = '';
+        return;
+      }
+
+      document.title = (sub ? sub.name : main.name) + ' · 林间漫记';
+
+      /* Hero 横幅 */
+      var mainIdx = cats.findIndex(function (c) { return c.id === main.id; });
+      var grad = BlogData.GRADIENTS[(mainIdx < 0 ? 0 : mainIdx) % BlogData.GRADIENTS.length];
+      var allPosts = BlogData.getPosts({ main: main.id });
+      document.getElementById('catHero').style.background = grad;
+      document.getElementById('catHero').innerHTML =
+        '<h1>' + Blog.icon(main.icon) + ' ' + Blog.esc(sub ? sub.name : main.name) + '</h1>' +
+        '<p>' + Blog.esc(sub ? sub.desc : main.desc) + '</p>' +
+        '<span class="cat-count">' + Blog.icon('file') + ' 共 ' + allPosts.length + ' 篇文章</span>';
+
+      /* 二级分类切换 chips */
+      var subs = main.subs;
+      document.getElementById('subChips').innerHTML =
+        '<a class="sub-chip' + (!sub ? ' active' : '') + '" href="category.html?main=' + main.id + '">' + Blog.icon('archive') + ' 全部' + main.name + '<em>' + allPosts.length + '</em></a>' +
+        subs.map(function (sb) {
+          var n = BlogData.getPosts({ cat: sb.id }).length;
+          return '<a class="sub-chip' + (sub && sub.id === sb.id ? ' active' : '') + '" href="category.html?cat=' + sb.id + '">' + Blog.esc(sb.name) + '<em>' + n + '</em></a>';
+        }).join('');
+
+      /* 文章列表 */
+      var list = BlogData.getPosts(sub ? { cat: sub.id } : { main: main.id });
+      document.getElementById('listTitle').innerHTML =
+        Blog.icon('file') + ' ' + (sub ? '「' + Blog.esc(sub.name) + '」文章' : Blog.esc(main.name) + ' · 全部文章') +
+        ' <small>' + list.length + ' 篇</small>';
+      document.getElementById('postList').innerHTML = list.map(Blog.postCardH).join('');
+      document.getElementById('listEmpty').style.display = list.length ? 'none' : 'block';
+
+      /* 侧边栏 */
+      document.getElementById('sidebarRoot').innerHTML = Blog.renderSidebar();
+    });
+  </script>
+</body>
+</html>
